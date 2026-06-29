@@ -1,25 +1,47 @@
-// server.js (versi sederhana dengan dotenv + supabase)
-console.log('🚀 Starting server...');
-
+// server.js
 require('dotenv').config();
-console.log('✅ Dotenv loaded');
-
 const express = require('express');
 const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Cek koneksi Supabase (tanpa memuat routes)
-const supabase = require('./config/supabaseClient');
-console.log('✅ Supabase client loaded');
+// Import Routes
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const diagnosisRoutes = require('./routes/diagnosisRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
+// Register Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/diagnosis', diagnosisRoutes);
+app.use('/api/admin', adminRoutes);
+
+// Root Route
 app.get('/', (req, res) => {
-    res.json({ message: '🚀 API is running with Supabase!' });
+    res.json({
+        message: '🚀 Sistem Pakar Kerusakan Laptop API Siap Digunakan!',
+        version: '1.0.0'
+    });
 });
 
+// 404 Handler
+app.use((req, res) => {
+    res.status(404).json({ error: 'Endpoint tidak ditemukan!' });
+});
+
+// Error Handler
+app.use((err, req, res, next) => {
+    console.error('Global error:', err);
+    res.status(500).json({ error: 'Terjadi kesalahan internal server!' });
+});
+
+// Jalankan Server
 app.listen(PORT, () => {
-    console.log(`🚀 Server berjalan di port ${PORT}`);
+    console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
+    console.log(`📊 Terhubung ke Supabase!`);
 });
