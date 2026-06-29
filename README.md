@@ -68,8 +68,6 @@ Bintang Satria – GitHub
 
 MIT License
 
----
-
 ### ✅ Step 4: Push Final ke GitHub
 
 ```bash
