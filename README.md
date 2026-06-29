@@ -48,12 +48,29 @@ Akses API yang sudah terdeploy di Vercel:
 5. API akan berjalan di http://localhost:3000
 
 📊 Metode Diagnosis
+
 Sistem menggunakan perhitungan CF (Certainty Factor) dengan 3 tahap:
 
-CF Pakar (nilai dari tabel damage_symptoms dan cf_rule)
+1. CF Pakar (nilai dari tabel damage_symptoms dan cf_rule)
 
-CF User (bobot keyakinan user saat menjawab: yes=1.0, probably_yes=0.8, dont_know=0.4, probably_not=0.2, no=0.0)
+2. CF User (bobot keyakinan user saat menjawab: yes=1.0, probably_yes=0.8, dont_know=0.4, probably_not=0.2, no=0.0)
 
-Kombinasi CF (Shortliffe & Buchanan) → CF_combined = CF_old + CF_new * (1 - CF_old)
+3. Kombinasi CF (Shortliffe & Buchanan) → CF_combined = CF_old + CF_new * (1 - CF_old)
 
 Hasil akhir ditampilkan dalam bentuk persentase (%).
+
+👨‍💻 Author
+Bintang Satria – GitHub
+
+📝 Lisensi
+
+MIT License
+
+---
+
+### ✅ Step 4: Push Final ke GitHub
+
+```bash
+git add README.md
+git commit -m "Final: Add README and complete project documentation"
+git push origin main
