@@ -1,12 +1,14 @@
-// index.js
-try {
-    console.log('🔄 Loading server.js...');
-    require('./server.js');
-    console.log('✅ Server.js loaded successfully');
-} catch (err) {
-    console.error('❌ Failed to load server.js:');
-    console.error('   Name:', err.name);
-    console.error('   Message:', err.message);
-    console.error('   Stack:', err.stack);
-    process.exit(1);
-}
+// index.js (paling sederhana)
+console.log('Hello from index.js!');
+const express = require('express');
+console.log('Express loaded!');
+const app = express();
+console.log('App created!');
+app.get('/', (req, res) => {
+    res.send('OK');
+});
+console.log('Route defined!');
+app.listen(3000, () => {
+    console.log('Server listening!');
+});
+console.log('End of file');
