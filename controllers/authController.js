@@ -62,6 +62,22 @@ const AuthController = {
             res.status(500).json({ error: error.message });
         }
     },
+
+    // ============================================
+    // LOGOUT
+    // ============================================
+    logout: async (req, res) => {
+        try {
+            // Karena JWT stateless, logout dilakukan di client (hapus token)
+            // Tapi kita tetap berikan response sukses
+            res.json({
+                message: 'Logout berhasil! Silakan hapus token di client.'
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
 };
 
 module.exports = AuthController; // <-- PASTIKAN INI ADA!

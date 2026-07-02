@@ -31,6 +31,21 @@ Akses API yang sudah terdeploy di Vercel:
 ## 📋 Cara Menjalankan Lokal
 
 1. Clone repository:
-   ```bash
+    ```bash
    git clone https://github.com/BintangSatr/kerusakan-laptop.git
    cd kerusakan-laptop
+
+2. Install dependencies:
+    ```bash
+    npm install
+
+3. Buat file .env di root folder, isi dengan:
+    SUPABASE_URL=your-supabase-url
+    SUPABASE_KEY=your-supabase-anon-key
+    JWT_SECRET=your-jwt-secret
+    PORT=3000
+
+4. Jalankan Server:
+    node server.js
+
+5. API akan berjalan di http://localhost:3000
