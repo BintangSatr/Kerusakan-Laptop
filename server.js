@@ -40,6 +40,28 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Terjadi kesalahan internal server!' });
 });
 
+// server.js (tambahkan di bawah semua route, sebelum app.listen)
+
+// === DEBUG: Cetak semua route yang terdaftar ===
+console.log('🔍 DAFTAR ROUTE YANG TERDAFTAR:');
+const listRoutes = (stack) => {
+    stack.forEach((layer) => {
+        if (layer.route) {
+            const methods = Object.keys(layer.route.methods).join(', ').toUpperCase();
+            console.log(`  ${methods} /api/auth${layer.route.path}`);
+        }
+    });
+};
+
+// Cari router auth di app._router.stack
+const authLayer = app._router.stack.find(layer => layer.handle.name === 'router' && layer.regexp.test('/api/auth'));
+if (authLayer) {
+    listRoutes(authLayer.handle.stack);
+} else {
+    console.log('❌ Route /api/auth tidak ditemukan!');
+}
+// ============================================
+
 // Jalankan Server
 app.listen(PORT, () => {
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
