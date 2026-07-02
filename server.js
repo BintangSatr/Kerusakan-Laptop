@@ -44,4 +44,4 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
     console.log(`📊 Terhubung ke Supabase!`);
-});
+});" " 
