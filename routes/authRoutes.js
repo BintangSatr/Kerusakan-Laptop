@@ -1,9 +1,8 @@
-// routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const AuthController = require('../controllers/authController');
 const authMiddleware = require('../middlewares/auth');
-const adminMiddleware = require('../middlewares/admin'); // <-- IMPORT MIDDLEWARE ADMIN
+const adminMiddleware = require('../middlewares/admin');
 
 // ================================================
 // ROUTE PUBLIC
@@ -18,9 +17,8 @@ router.post('/guest-session', AuthController.createGuestSession);
 router.get('/me', authMiddleware, AuthController.getProfile);
 
 // ================================================
-// ROUTE ADMIN (WAJIB LOGIN + ROLE ADMIN)
+// ROUTE ADMIN
 // ================================================
-// TEST ENDPOINT: Cek apakah user adalah admin
 router.get('/admin-check', authMiddleware, adminMiddleware, (req, res) => {
     res.json({
         message: '✅ Anda adalah admin!',

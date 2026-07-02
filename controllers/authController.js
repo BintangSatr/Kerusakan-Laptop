@@ -1,4 +1,3 @@
-// controllers/authController.js
 const AuthService = require('../services/authService');
 
 const AuthController = {
@@ -32,8 +31,6 @@ const AuthController = {
     
     getProfile: async (req, res) => {
         try {
-            // req.user sudah diisi oleh middleware dari token
-            // Kita ambil data lengkap dari database biar akurat
             const userId = req.user.id;
             const user = await AuthService.getProfile(userId);
             
@@ -54,7 +51,6 @@ const AuthController = {
 
     createGuestSession: async (req, res) => {
         try {
-            const AuthService = require('../services/authService');
             const guestSession = await AuthService.createGuestSession();
             res.status(201).json(guestSession);
         } catch (error) {
@@ -62,22 +58,6 @@ const AuthController = {
             res.status(500).json({ error: error.message });
         }
     },
-
-    // ============================================
-    // LOGOUT
-    // ============================================
-    logout: async (req, res) => {
-        try {
-            // Karena JWT stateless, logout dilakukan di client (hapus token)
-            // Tapi kita tetap berikan response sukses
-            res.json({
-                message: 'Logout berhasil! Silakan hapus token di client.'
-            });
-        } catch (error) {
-            console.error('Logout error:', error);
-            res.status(500).json({ error: error.message });
-        }
-    },
 };
 
-module.exports = AuthController; // <-- PASTIKAN INI ADA!
+module.exports = AuthController;
