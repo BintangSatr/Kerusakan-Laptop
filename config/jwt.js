@@ -1,16 +1,18 @@
 // config/jwt.js
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
-// Ambil kunci rahasia dari file .env
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = '7d'; // Token berlaku 7 hari
+const JWT_EXPIRES_IN = '7d';
 
-// Fungsi 1: MEMBUAT TOKEN (Stempel)
 const generateToken = (payload) => {
     return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 };
 
-// Fungsi 2: MEMERIKSA TOKEN
+const generateRefreshToken = () => {
+    return crypto.randomBytes(40).toString('hex');
+};
+
 const verifyToken = (token) => {
     try {
         return jwt.verify(token, JWT_SECRET);
@@ -19,7 +21,4 @@ const verifyToken = (token) => {
     }
 };
 
-// ============================================
-// EKSPOR KEDUA FUNGSI (INI YANG SERING TERLUPA!)
-// ============================================
-module.exports = { generateToken, verifyToken };
+module.exports = { generateToken, generateRefreshToken, verifyToken };

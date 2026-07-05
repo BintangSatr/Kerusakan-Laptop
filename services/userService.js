@@ -2,6 +2,8 @@
 const UserModel = require('../models/userModel');
 const SettingModel = require('../models/settingModel');
 const ConsultationModel = require('../models/consultationModel');
+const AuthService = require('./authService'); // <-- TAMBAHKAN
+const supabase = require('../config/supabaseClient'); // <-- TAMBAHKAN
 
 const UserService = {
     // ============================================
@@ -108,7 +110,86 @@ const UserService = {
 
         const settings = await SettingModel.update(userId, filteredUpdates);
         return settings;
-    }
+    },
+
+    // ============================================
+    // 10. TAMBAH CATATAN DIAGNOSIS
+    // ============================================
+    addNote: async (consultationId, userId, notes) => {
+        if (!notes || notes.trim() === '') {
+            throw new Error('Catatan tidak boleh kosong!');
+        }
+        return await ConsultationModel.addNote(consultationId, userId, notes);
+    },
+
+    // ============================================
+    // 11. HAPUS RIWAYAT DIAGNOSIS
+    // ============================================
+    deleteHistory: async (consultationId, userId) => {
+        const consultation = await ConsultationModel.findById(consultationId);
+        if (!consultation) {
+            throw new Error('Riwayat diagnosis tidak ditemukan!');
+        }
+        if (consultation.user_id !== userId) {
+            throw new Error('Anda tidak memiliki akses ke riwayat ini!');
+        }
+        // LANGSUNG HAPUS (TANPA CEK STATUS)
+        return await ConsultationModel.delete(consultationId, userId);
+    },
+
+    // ============================================
+    // 12. HAPUS AKUN (PERMANEN)
+    // ============================================
+    deleteAccount: async (userId, password) => {
+        console.log('🟡 deleteAccount - userId:', userId, 'type:', typeof userId);
+        // VALIDASI: userId harus ada dan berupa angka
+        if (!userId || isNaN(userId)) {
+            throw new Error('User ID tidak valid!');
+        }
+
+        // 1. Cek user
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            throw new Error('User tidak ditemukan!');
+        }
+
+        // VALIDASI: Pastikan password_hash ada
+        if (!user.password_hash) {
+            throw new Error('Data user tidak lengkap! Silakan hubungi admin.');
+        }
+
+        // 2. Verifikasi password
+        const isValid = await UserModel.verifyPassword(password, user.password_hash);
+        if (!isValid) {
+            throw new Error('Password salah!');
+        }
+
+        // 3. Soft delete: set deleted_at dan nonaktifkan
+        const now = new Date().toISOString();
+        
+        const { error } = await supabase
+            .from('users')
+            .update({ 
+                is_active: false,
+                deleted_at: now
+            })
+            .eq('id', userId);
+
+        if (error) {
+            console.error('❌ Supabase update error:', error);
+            throw new Error('Gagal menghapus akun: ' + error.message);
+        }
+
+        // 4. Revoke semua refresh token
+        try {
+            await AuthService.revokeAllRefreshTokens(userId);
+        } catch (err) {
+            console.error('❌ Revoke refresh token error:', err);
+            // Tidak perlu throw, karena akun sudah dihapus
+        }
+
+        return { message: 'Akun berhasil dihapus. Data Anda telah dinonaktifkan.' };
+    },
 };
 
 module.exports = UserService;

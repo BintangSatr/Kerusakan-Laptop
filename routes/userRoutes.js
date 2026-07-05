@@ -15,6 +15,8 @@ router.put('/password', authMiddleware, UserController.changePassword);
 
 // History
 router.get('/history', authMiddleware, UserController.getHistory);
+router.put('/history/:id/notes', authMiddleware, UserController.addNote);        // <-- TAMBAHKAN
+router.delete('/history/:id', authMiddleware, UserController.deleteHistory);      // <-- TAMBAHKAN
 
 // Favorites
 router.get('/favorites', authMiddleware, UserController.getFavorites);
@@ -24,5 +26,8 @@ router.delete('/favorites/:id', authMiddleware, UserController.removeFavorite);
 // Settings
 router.get('/settings', authMiddleware, UserController.getSettings);
 router.put('/settings', authMiddleware, UserController.updateSettings);
+
+// Account
+router.delete('/account', authMiddleware, UserController.deleteAccount);          // <-- TAMBAHKAN
 
 module.exports = router;

@@ -59,7 +59,18 @@ const DamageModel = {
             .eq('id', id);
         if (error) throw error;
         return true;
-    }
+    },
+
+    findById: async (id) => {
+        const { data, error } = await supabase
+            .from('damages')
+            .select('*')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (error) throw error;
+        return data;
+    },
 };
 
 module.exports = DamageModel;

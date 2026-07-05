@@ -177,7 +177,69 @@ const DiagnosisController = {
             console.error('SubmitFeedback error:', error);
             res.status(500).json({ error: error.message });
         }
-    }
+    },
+
+    // ============================================================
+    // 7. DETAIL GEJALA
+    // ============================================================
+    getSymptomDetail: async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const symptom = await DiagnosisService.getSymptomDetail(id);
+            res.json(symptom);
+        } catch (error) {
+            res.status(404).json({ error: error.message });
+        }
+    },
+
+    // ============================================================
+    // 8. DETAIL KERUSAKAN
+    // ============================================================
+    getDamageDetail: async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const damage = await DiagnosisService.getDamageDetail(id);
+            res.json(damage);
+        } catch (error) {
+            res.status(404).json({ error: error.message });
+        }
+    },
+
+    // ============================================================
+    // 9. BATALKAN KONSULTASI
+    // ============================================================
+    cancelConsultation: async (req, res) => {
+        try {
+            const consultationId = parseInt(req.params.id);
+            const userId = req.user ? req.user.id : null;
+            
+            // Jika user login, langsung pakai userId, guest tidak bisa hapus lewat sini
+            if (!userId) {
+                return res.status(401).json({ error: 'Anda harus login untuk membatalkan konsultasi!' });
+            }
+
+            const result = await DiagnosisService.cancelConsultation(consultationId, userId);
+            res.json({ message: 'Konsultasi berhasil dibatalkan!', data: result });
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    },
+
+    // ============================================================
+    // 10. EXPORT PDF
+    // ============================================================
+    exportPDF: async (req, res) => {
+        try {
+            const consultationId = parseInt(req.params.id);
+            const pdfBuffer = await DiagnosisService.exportPDF(consultationId);
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=diagnosis_${consultationId}.pdf`);
+            res.send(pdfBuffer);
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    },
 };
 
 module.exports = DiagnosisController;

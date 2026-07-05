@@ -7,7 +7,7 @@ const ConsultationModel = require('../models/consultationModel');
 
 const DiagnosisService = {
     // ============================================================
-    // 1. GET SYMPTOMS, DAMAGES, SOLUTIONS, START
+    // 1. PUBLIC DATA
     // ============================================================
     getSymptoms: async (group = null) => {
         return await SymptomModel.findAll({ group, is_active: true });
@@ -21,6 +21,21 @@ const DiagnosisService = {
         return await DamageModel.getSolutions(damageId);
     },
 
+    getSymptomDetail: async (id) => {
+        const symptom = await SymptomModel.findById(id);
+        if (!symptom) throw new Error('Gejala tidak ditemukan!');
+        return symptom;
+    },
+
+    getDamageDetail: async (id) => {
+        const damage = await DamageModel.findById(id);
+        if (!damage) throw new Error('Kerusakan tidak ditemukan!');
+        return damage;
+    },
+
+    // ============================================================
+    // 2. KONSULTASI
+    // ============================================================
     startConsultation: async (userId = null, isGuest = false, guestSessionId = null) => {
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         const consultation = await ConsultationModel.create({
@@ -38,8 +53,18 @@ const DiagnosisService = {
         return consultation;
     },
 
+    cancelConsultation: async (consultationId, userId = null, guestSessionId = null) => {
+        return await ConsultationModel.cancel(consultationId, userId, guestSessionId);
+    },
+
+    getResult: async (consultationId) => {
+        const consultation = await ConsultationModel.findById(consultationId);
+        if (!consultation) throw new Error('Konsultasi tidak ditemukan!');
+        return consultation;
+    },
+
     // ============================================================
-    // 2. INTERACTIVE Q&A
+    // 3. INTERACTIVE Q&A
     // ============================================================
     getNextQuestion: async (consultationId) => {
         const consultation = await ConsultationModel.findById(consultationId);
@@ -106,7 +131,7 @@ const DiagnosisService = {
     },
 
     // ============================================================
-    // 3. PROSES DIAGNOSIS AKHIR (CF PAKAR × CF USER + KOMBINASI)
+    // 4. PROSES DIAGNOSIS (CF PAKAR × CF USER + KOMBINASI)
     //    Metode Standar Shortliffe & Buchanan
     // ============================================================
     processFinalDiagnosis: async (consultationId) => {
@@ -129,12 +154,18 @@ const DiagnosisService = {
         // 3. Buat object jawaban user: { symptom_id: cf_user, ... }
         const userAnswers = {};
         const answeredSymptoms = consultation.answered_symptoms || [];
+        if (answeredSymptoms.length === 0) {
+            throw new Error('Belum ada gejala yang dijawab!');
+        }
         for (const ans of answeredSymptoms) {
             userAnswers[ans.symptom_id] = getUserCF(ans.value);
         }
 
         // 4. Ambil semua aturan aktif
         const rules = await RuleModel.findAll({ is_active: true });
+        if (rules.length === 0) {
+            throw new Error('Tidak ada aturan aktif di database!');
+        }
 
         // 5. Ambil relasi damage-symptoms (CF Pakar)
         const { data: damageSymptoms } = await supabase
@@ -224,22 +255,30 @@ const DiagnosisService = {
     },
 
     // ============================================================
-    // 4. PROCESS DIAGNOSIS (KOMPATIBILITAS DENGAN OLD API)
-    //    Tetap menerima symptom_ids, tetapi mengabaikannya dan
-    //    membaca jawaban dari answered_symptoms.
+    // 5. PROCESS DIAGNOSIS (KOMPATIBILITAS)
     // ============================================================
     processDiagnosis: async (consultationId, symptomIds) => {
-        // Panggil processFinalDiagnosis yang sudah menggunakan answered_symptoms
-        return await DiagnosisService.processFinalDiagnosis(consultationId);
-    },
-
-    // ============================================================
-    // 5. GET RESULT
-    // ============================================================
-    getResult: async (consultationId) => {
+        // 1. Ambil data konsultasi
         const consultation = await ConsultationModel.findById(consultationId);
         if (!consultation) throw new Error('Konsultasi tidak ditemukan!');
-        return consultation;
+
+        // 2. Jika ada symptom_ids yang dikirim, ubah menjadi answered_symptoms
+        if (symptomIds && symptomIds.length > 0) {
+            // Buat answered_symptoms dari symptom_ids (anggap semua jawaban = "yes")
+            const answeredSymptoms = symptomIds.map(id => ({
+                symptom_id: id,
+                value: 'yes'
+            }));
+
+            // Simpan ke database
+            await ConsultationModel.update(consultationId, {
+                answered_symptoms: answeredSymptoms,
+                answered_count: answeredSymptoms.length
+            });
+        }
+
+        // 3. Proses diagnosis (baca dari answered_symptoms)
+        return await DiagnosisService.processFinalDiagnosis(consultationId);
     },
 
     // ============================================================
@@ -269,7 +308,98 @@ const DiagnosisService = {
 
         if (error) throw error;
         return data;
-    }
+    },
+
+    // ============================================================
+    // 7. EXPORT PDF
+    // ============================================================
+    exportPDF: async (consultationId) => {
+        const consultation = await ConsultationModel.findById(consultationId);
+        if (!consultation) throw new Error('Konsultasi tidak ditemukan!');
+        if (consultation.status !== 'completed') {
+            throw new Error('Konsultasi belum selesai. Selesaikan diagnosis terlebih dahulu!');
+        }
+
+        const results = consultation.results || [];
+        if (results.length === 0) {
+            throw new Error('Tidak ada hasil diagnosis untuk diexport!');
+        }
+
+        // === GENERATE PDF ===
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
+        let buffers = [];
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => {});
+
+        // --- Header ---
+        doc.fontSize(20).font('Helvetica-Bold').text('LAPORAN DIAGNOSIS KERUSAKAN LAPTOP', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).font('Helvetica');
+        doc.text(`ID Konsultasi: ${consultationId}`);
+        doc.text(`Tanggal: ${new Date(consultation.created_at).toLocaleString('id-ID')}`);
+        doc.text(`Status: ${consultation.status}`);
+        doc.moveDown();
+
+        // --- Gejala yang Dipilih ---
+        const selectedSymptoms = consultation.selected_symptoms || [];
+        if (selectedSymptoms.length > 0) {
+            doc.fontSize(14).font('Helvetica-Bold').text('Gejala yang Dipilih:');
+            doc.fontSize(11).font('Helvetica');
+            const symptomIds = selectedSymptoms.map(s => s.symptom_id);
+            const { data: symptoms } = await supabase
+                .from('symptoms')
+                .select('id, name')
+                .in('id', symptomIds);
+            
+            if (symptoms) {
+                symptoms.forEach((s, i) => {
+                    doc.text(`${i+1}. ${s.name}`);
+                });
+            }
+            doc.moveDown();
+        }
+
+        // --- Hasil Diagnosis ---
+        doc.fontSize(14).font('Helvetica-Bold').text('Hasil Diagnosis:');
+        doc.moveDown();
+
+        results.forEach((item, index) => {
+            const damage = item.damage;
+            const confidence = item.confidence || 0;
+            const level = confidence >= 80 ? 'Sangat Tinggi' :
+                          confidence >= 60 ? 'Tinggi' :
+                          confidence >= 40 ? 'Sedang' : 'Rendah';
+
+            doc.fontSize(12).font('Helvetica-Bold');
+            doc.text(`${index+1}. ${damage.name} (${damage.code})`);
+            doc.fontSize(10).font('Helvetica');
+            doc.text(`   Keyakinan: ${confidence}% (${level})`);
+            doc.text(`   Deskripsi: ${damage.description || '-'}`);
+            doc.text(`   Tingkat Severitas: ${damage.severity_level || '-'}`);
+            if (damage.general_solution) {
+                doc.text(`   Solusi Umum: ${damage.general_solution}`);
+            }
+            doc.moveDown(0.5);
+        });
+
+        // --- Footer ---
+        doc.moveDown(2);
+        doc.fontSize(9).font('Helvetica');
+        doc.text('Dokumen ini dihasilkan oleh Sistem Pakar Diagnosis Kerusakan Laptop (Laptop Akinator).', { align: 'center' });
+        doc.text('*Hasil diagnosis bersifat rekomendasi, bukan pengganti pemeriksaan teknisi profesional.', { align: 'center' });
+
+        doc.end();
+
+        return new Promise((resolve) => {
+            const buffers = [];
+            doc.on('data', buffers.push.bind(buffers));
+            doc.on('end', () => {
+                resolve(Buffer.concat(buffers));
+            });
+        });
+    },
 };
 
 module.exports = DiagnosisService;

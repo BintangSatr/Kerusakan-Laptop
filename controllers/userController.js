@@ -119,7 +119,67 @@ const UserController = {
         } catch (error) {
             res.status(400).json({ error: error.message });
         }
-    }
+    },
+
+    // ============================================
+    // 10. TAMBAH CATATAN DIAGNOSIS
+    // ============================================
+    addNote: async (req, res) => {
+        try {
+            const consultationId = parseInt(req.params.id);
+            const { notes } = req.body;
+
+            if (!notes) {
+                return res.status(400).json({ error: 'Catatan wajib diisi!' });
+            }
+
+            const result = await UserService.addNote(consultationId, req.user.id, notes);
+            res.json({ 
+                message: 'Catatan berhasil ditambahkan!', 
+                data: result 
+            });
+        } catch (error) {
+            console.error('Add note error:', error);
+            res.status(400).json({ error: error.message });
+        }
+    },
+
+    // ============================================
+    // 11. HAPUS RIWAYAT DIAGNOSIS
+    // ============================================
+    deleteHistory: async (req, res) => {
+        try {
+            const consultationId = parseInt(req.params.id);
+            const result = await UserService.deleteHistory(consultationId, req.user.id);
+            res.json({ 
+                message: 'Riwayat diagnosis berhasil dihapus!', 
+                data: result 
+            });
+        } catch (error) {
+            console.error('Delete history error:', error);
+            res.status(400).json({ error: error.message });
+        }
+    },
+
+    // ============================================
+    // 12. HAPUS AKUN (PERMANEN)
+    // ============================================
+    deleteAccount: async (req, res) => {
+         console.log('🟡 deleteAccount controller - req.user:', req.user);
+        try {
+            const { password } = req.body;
+
+            if (!password) {
+                return res.status(400).json({ error: 'Password wajib diisi untuk konfirmasi!' });
+            }
+
+            const result = await UserService.deleteAccount(req.user.id, password);
+            res.json(result);
+        } catch (error) {
+            console.error('Delete account error:', error);
+            res.status(400).json({ error: error.message });
+        }
+    },
 };
 
 module.exports = UserController;

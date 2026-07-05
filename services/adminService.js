@@ -1,4 +1,3 @@
-// services/adminService.js
 const supabase = require('../config/supabaseClient');
 const UserModel = require('../models/userModel');
 const SymptomModel = require('../models/symptomModel');
@@ -10,7 +9,7 @@ const ConsultationModel = require('../models/consultationModel');
 
 const AdminService = {
     // ============================================================
-    // DASHBOARD
+    // 1. DASHBOARD
     // ============================================================
     getStats: async () => {
         const { count: users } = await supabase.from('users').select('*', { count: 'exact', head: true });
@@ -21,8 +20,66 @@ const AdminService = {
         return { users, symptoms, damages, consultations, feedback };
     },
 
+    getChartData: async (type = 'daily') => {
+        const now = new Date();
+        let startDate;
+
+        switch (type) {
+            case 'daily':
+                startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - 30);
+                break;
+            case 'weekly':
+                startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - 12 * 7);
+                break;
+            case 'monthly':
+                startDate = new Date(now);
+                startDate.setMonth(startDate.getMonth() - 12);
+                break;
+            default:
+                startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - 30);
+        }
+
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('created_at, status')
+            .gte('created_at', startDate.toISOString());
+
+        if (error) throw error;
+
+        const grouped = {};
+        data.forEach(item => {
+            const date = new Date(item.created_at);
+            let key;
+            if (type === 'daily') {
+                key = date.toISOString().split('T')[0];
+            } else if (type === 'weekly') {
+                const week = Math.floor((date - startDate) / (7 * 24 * 60 * 60 * 1000));
+                key = `Week ${week + 1}`;
+            } else {
+                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            }
+            if (!grouped[key]) grouped[key] = { total: 0, completed: 0, cancelled: 0 };
+            grouped[key].total++;
+            if (item.status === 'completed') grouped[key].completed++;
+            if (item.status === 'cancelled') grouped[key].cancelled++;
+        });
+
+        const labels = Object.keys(grouped).sort();
+        return {
+            labels,
+            datasets: [
+                { label: 'Total Konsultasi', data: labels.map(k => grouped[k].total) },
+                { label: 'Selesai', data: labels.map(k => grouped[k].completed) },
+                { label: 'Dibatalkan', data: labels.map(k => grouped[k].cancelled) }
+            ]
+        };
+    },
+
     // ============================================================
-    // USER MANAGEMENT
+    // 2. USER MANAGEMENT
     // ============================================================
     getUsers: async (page, limit, search, role) => {
         return await UserModel.findAllAdmin(page, limit, search, role);
@@ -59,7 +116,7 @@ const AdminService = {
     },
 
     // ============================================================
-    // SYMPTOM MANAGEMENT
+    // 3. SYMPTOM MANAGEMENT
     // ============================================================
     getSymptoms: async (page, limit, group) => {
         return await SymptomModel.findAllAdmin(page, limit, group);
@@ -88,7 +145,7 @@ const AdminService = {
     },
 
     // ============================================================
-    // DAMAGE MANAGEMENT
+    // 4. DAMAGE MANAGEMENT
     // ============================================================
     getDamages: async (page, limit, severity) => {
         return await DamageModel.findAllAdmin(page, limit, severity);
@@ -117,7 +174,7 @@ const AdminService = {
     },
 
     // ============================================================
-    // DAMAGE-SYMPTOM RELATIONSHIP
+    // 5. DAMAGE-SYMPTOM RELATIONSHIP
     // ============================================================
     getDamageSymptoms: async (damageId) => {
         return await DamageSymptomModel.findByDamageId(damageId);
@@ -146,7 +203,7 @@ const AdminService = {
     },
 
     // ============================================================
-    // SOLUTION MANAGEMENT
+    // 6. SOLUTION MANAGEMENT
     // ============================================================
     getSolutions: async (damageId) => {
         return await SolutionModel.findByDamageId(damageId);
@@ -175,7 +232,7 @@ const AdminService = {
     },
 
     // ============================================================
-    // RULE MANAGEMENT (knowledge_base)
+    // 7. RULE MANAGEMENT (knowledge_base)
     // ============================================================
     getRules: async (page, limit) => {
         return await RuleModel.findAllAdmin(page, limit);
@@ -208,7 +265,7 @@ const AdminService = {
     },
 
     // ============================================================
-    // CONSULTATION MONITORING
+    // 8. CONSULTATION MONITORING
     // ============================================================
     getConsultations: async (page, limit, status, dateFrom, dateTo) => {
         return await ConsultationModel.findAllAdmin(page, limit, status, dateFrom, dateTo);
@@ -220,6 +277,133 @@ const AdminService = {
 
     getConsultationResults: async (consultationId) => {
         return await ConsultationModel.getResults(consultationId);
+    },
+
+    // ============================================================
+    // 9. LOGS
+    // ============================================================
+    getLogs: async (page, limit, action, userId) => {
+        const LogModel = require('../models/logModel');
+        return await LogModel.findAll(page, limit, action, userId);
+    },
+
+    // ============================================================
+    // 10. FEEDBACK
+    // ============================================================
+    getFeedback: async (page, limit, isCorrect) => {
+        const FeedbackModel = require('../models/feedbackModel');
+        return await FeedbackModel.findAllAdmin(page, limit, isCorrect);
+    },
+
+    // ============================================================
+    // 11. ANALYTICS
+    // ============================================================
+    getAccuracy: async (dateFrom, dateTo, damageId = null) => {
+        let query = supabase
+            .from('feedback')
+            .select(`
+                *,
+                consultations (
+                    created_at,
+                    user_id
+                ),
+                damages (
+                    id,
+                    name,
+                    code
+                )
+            `)
+            .not('consultations', 'is', null);
+
+        if (dateFrom) query = query.gte('consultations.created_at', dateFrom);
+        if (dateTo) query = query.lte('consultations.created_at', dateTo);
+        if (damageId) query = query.eq('actual_damage_id', parseInt(damageId));
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const total = data.length;
+        const correct = data.filter(f => f.is_correct === true).length;
+        const accuracy = total > 0 ? (correct / total) * 100 : 0;
+
+        const byDamage = {};
+        data.forEach(f => {
+            const damage = f.damages;
+            const name = damage?.name || 'Tidak diketahui';
+            if (!byDamage[name]) byDamage[name] = { total: 0, correct: 0 };
+            byDamage[name].total++;
+            if (f.is_correct) byDamage[name].correct++;
+        });
+
+        const damageStats = Object.entries(byDamage).map(([name, stats]) => ({
+            damage: name,
+            total: stats.total,
+            correct: stats.correct,
+            accuracy: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0
+        }));
+
+        return {
+            total_feedback: total,
+            correct_feedback: correct,
+            accuracy: parseFloat(accuracy.toFixed(2)),
+            by_damage: damageStats
+        };
+    },
+
+    getTopDamages: async (dateFrom, dateTo, limit = 10) => {
+        let query = supabase
+            .from('diagnosis_results')
+            .select(`
+                damage_id,
+                damages (
+                    id,
+                    name,
+                    code
+                )
+            `);
+
+        if (dateFrom) query = query.gte('diagnosis_date', dateFrom);
+        if (dateTo) query = query.lte('diagnosis_date', dateTo);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        // 🔥 FIX: Jika data null atau undefined, return array kosong
+        if (!data || data.length === 0) return [];
+
+        const countMap = {};
+        data.forEach(item => {
+            const damage = item.damages;
+            if (!damage) return;
+            const key = damage.id;
+            if (!countMap[key]) {
+                countMap[key] = {
+                    id: key,
+                    name: damage.name || 'Tidak diketahui',
+                    code: damage.code || '-',
+                    count: 0
+                };
+            }
+            countMap[key].count++;
+        });
+
+        return Object.values(countMap)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, limit);
+    },
+
+    // ============================================================
+    // 12. NOTIFICATIONS (BROADCAST)
+    // ============================================================
+    getNotifications: async (page, limit) => {
+        const NotificationModel = require('../models/notificationModel');
+        return await NotificationModel.findAll(page, limit);
+    },
+
+    sendBroadcast: async (title, message, target, adminId) => {
+        const NotificationModel = require('../models/notificationModel');
+        const notification = await NotificationModel.create(title, message, target, adminId);
+        return notification;
     }
 };
 

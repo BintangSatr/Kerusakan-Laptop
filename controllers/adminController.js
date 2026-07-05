@@ -1,9 +1,8 @@
-// controllers/adminController.js
 const AdminService = require('../services/adminService');
 
 const AdminController = {
     // ============================================================
-    // DASHBOARD
+    // 1. DASHBOARD
     // ============================================================
     getStats: async (req, res) => {
         try {
@@ -14,8 +13,18 @@ const AdminController = {
         }
     },
 
+    getChartData: async (req, res) => {
+        try {
+            const { type = 'daily' } = req.query;
+            const data = await AdminService.getChartData(type);
+            res.json(data);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
     // ============================================================
-    // USER MANAGEMENT
+    // 2. USER MANAGEMENT
     // ============================================================
     getUsers: async (req, res) => {
         try {
@@ -53,7 +62,13 @@ const AdminController = {
     updateUser: async (req, res) => {
         try {
             const { full_name, email, role, phone, profile_picture } = req.body;
-            const user = await AdminService.updateUser(parseInt(req.params.id), { full_name, email, role, phone, profile_picture });
+            const user = await AdminService.updateUser(parseInt(req.params.id), {
+                full_name,
+                email,
+                role,
+                phone,
+                profile_picture
+            });
             res.json(user);
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -92,7 +107,7 @@ const AdminController = {
     },
 
     // ============================================================
-    // SYMPTOM MANAGEMENT
+    // 3. SYMPTOM MANAGEMENT
     // ============================================================
     getSymptoms: async (req, res) => {
         try {
@@ -120,7 +135,13 @@ const AdminController = {
             if (!code || !name) {
                 return res.status(400).json({ error: 'code dan name wajib diisi!' });
             }
-            const symptom = await AdminService.createSymptom({ code, name, description, cf_weight: cf_weight || 1, symptom_group });
+            const symptom = await AdminService.createSymptom({
+                code,
+                name,
+                description,
+                cf_weight: cf_weight || 1,
+                symptom_group
+            });
             res.status(201).json(symptom);
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -146,7 +167,7 @@ const AdminController = {
     },
 
     // ============================================================
-    // DAMAGE MANAGEMENT
+    // 4. DAMAGE MANAGEMENT
     // ============================================================
     getDamages: async (req, res) => {
         try {
@@ -174,7 +195,13 @@ const AdminController = {
             if (!code || !name) {
                 return res.status(400).json({ error: 'code dan name wajib diisi!' });
             }
-            const damage = await AdminService.createDamage({ code, name, description, general_solution, severity_level: severity_level || 'medium' });
+            const damage = await AdminService.createDamage({
+                code,
+                name,
+                description,
+                general_solution,
+                severity_level: severity_level || 'medium'
+            });
             res.status(201).json(damage);
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -200,7 +227,7 @@ const AdminController = {
     },
 
     // ============================================================
-    // DAMAGE-SYMPTOM RELATIONSHIP
+    // 5. DAMAGE-SYMPTOM RELATIONSHIP
     // ============================================================
     getDamageSymptoms: async (req, res) => {
         try {
@@ -218,7 +245,7 @@ const AdminController = {
             if (!damage_id || !symptom_id || cf_value === undefined) {
                 return res.status(400).json({ error: 'damage_id, symptom_id, dan cf_value wajib diisi!' });
             }
-            const rel = await AdminService.createDamageSymptom(req.body);
+            const rel = await AdminService.createDamageSymptom({ damage_id, symptom_id, cf_value, is_mandatory: is_mandatory || false });
             res.status(201).json(rel);
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -244,7 +271,7 @@ const AdminController = {
     },
 
     // ============================================================
-    // SOLUTION MANAGEMENT
+    // 6. SOLUTION MANAGEMENT
     // ============================================================
     getSolutions: async (req, res) => {
         try {
@@ -262,7 +289,7 @@ const AdminController = {
             if (!damage_id || !step_order || !description) {
                 return res.status(400).json({ error: 'damage_id, step_order, dan description wajib diisi!' });
             }
-            const solution = await AdminService.createSolution(req.body);
+            const solution = await AdminService.createSolution({ damage_id, step_order, description, is_preventive, requires_tools });
             res.status(201).json(solution);
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -288,7 +315,7 @@ const AdminController = {
     },
 
     // ============================================================
-    // RULE MANAGEMENT
+    // 7. RULE MANAGEMENT (knowledge_base)
     // ============================================================
     getRules: async (req, res) => {
         try {
@@ -316,7 +343,7 @@ const AdminController = {
             if (!rule_code || !antecedent || !consequent || cf_rule === undefined) {
                 return res.status(400).json({ error: 'rule_code, antecedent, consequent, dan cf_rule wajib diisi!' });
             }
-            const rule = await AdminService.createRule(req.body);
+            const rule = await AdminService.createRule({ rule_code, antecedent, consequent, cf_rule, description, priority });
             res.status(201).json(rule);
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -342,7 +369,7 @@ const AdminController = {
     },
 
     // ============================================================
-    // CONSULTATION MONITORING
+    // 8. CONSULTATION MONITORING
     // ============================================================
     getConsultations: async (req, res) => {
         try {
@@ -369,6 +396,85 @@ const AdminController = {
             const results = await AdminService.getConsultationResults(parseInt(req.params.id));
             if (!results) return res.status(404).json({ error: 'Hasil konsultasi tidak ditemukan!' });
             res.json(results);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // ============================================================
+    // 9. LOGS
+    // ============================================================
+    getLogs: async (req, res) => {
+        try {
+            const { page = 1, limit = 10, action = '', user_id = '' } = req.query;
+            const result = await AdminService.getLogs(parseInt(page), parseInt(limit), action, user_id);
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // ============================================================
+    // 10. FEEDBACK
+    // ============================================================
+    getFeedback: async (req, res) => {
+        try {
+            const { page = 1, limit = 10, is_correct = '' } = req.query;
+            const result = await AdminService.getFeedback(parseInt(page), parseInt(limit), is_correct);
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // ============================================================
+    // 11. ANALYTICS
+    // ============================================================
+    getAccuracy: async (req, res) => {
+        try {
+            const { date_from = '', date_to = '', damage_id = '' } = req.query;
+            const result = await AdminService.getAccuracy(date_from, date_to, damage_id);
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    getTopDamages: async (req, res) => {
+        try {
+            const { date_from = '', date_to = '', limit = 10 } = req.query;
+            const result = await AdminService.getTopDamages(date_from, date_to, parseInt(limit));
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // ============================================================
+    // 12. NOTIFICATIONS (BROADCAST)
+    // ============================================================
+    getNotifications: async (req, res) => {
+        try {
+            const { page = 1, limit = 10 } = req.query;
+            const result = await AdminService.getNotifications(parseInt(page), parseInt(limit));
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    sendBroadcast: async (req, res) => {
+        try {
+            const { title, message, target = 'all' } = req.body;
+            if (!title || !message) {
+                return res.status(400).json({ error: 'title dan message wajib diisi!' });
+            }
+
+            const result = await AdminService.sendBroadcast(title, message, target, req.user.id);
+            res.status(201).json({
+                message: 'Notifikasi berhasil dikirim!',
+                data: result
+            });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

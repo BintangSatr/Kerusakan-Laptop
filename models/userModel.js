@@ -23,7 +23,7 @@ const UserModel = {
     findById: async (id) => {
         const { data, error } = await supabase
             .from('users')
-            .select('id, username, email, full_name, role, is_active, created_at')
+            .select('id, username, email, full_name, role, is_active, created_at, password_hash')
             .eq('id', id)
             .maybeSingle();
 
@@ -92,8 +92,6 @@ const UserModel = {
         if (error) throw error;
         return true;
     },
-
-    // models/userModel.js (tambahkan di dalam UserModel)
 
     // Admin: Dapatkan semua user dengan pagination dan filter
     findAllAdmin: async (page = 1, limit = 10, search = '', role = '') => {
